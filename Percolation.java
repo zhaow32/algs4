@@ -1,94 +1,117 @@
-import edu.princeton.cs.algs4.StdRandom;
-import edu.princeton.cs.algs4.StdStats;
 import edu.princeton.cs.algs4.WeightedQuickUnionUF;
-
 public class Percolation
 {
-    private int N;// total number of sites
-    private boolean[] state;//the state of all sites
-    private WeightedQuickUnionUF uf;
-    private int top;
-    private int bottom;
+    private int n; // total number of sites in grid
+    private WeightedQuickUnionUF uf1; // uf with top and bottom virtual sites
+    private WeightedQuickUnionUF uf2; // uf with only top virtual site
+    private boolean[] stateofsite;
     
-    public Percolation(int n)//create n-by-n grid,with all sites block
+    public Percolation(int n)
     {
         if(n<=0)
-            throw new IllegalArgumentException("N is not an efficient number!");
-        
-        N=n;
-        state=new boolean[n*n+2];//including the top and bottom virtual sites
-        uf=new WeightedQuickUnionUF(N*n+2);
-        top=0;
-        bottom=N*N+1;
-        
+            throw new IllegalArgumentException();
+        this.n=n;
+        uf1=new WeightedQuickUnionUF(n*n+2);
+        uf2=new WeightedQuickUnionUF(n*n+1);
+        stateofsite=new boolean[n*n+2];
+        for(int i =1;i<=n;i++)
+        {//all first line connect to top
+            uf1.union(0,i);
+            uf2.union(0,i);
+        }
+        for(int i =1;i<=n;i++)
+        {//all bottom line of uf1 connect to bottom;
+            uf1.union(getlocate(n,i),n*n+1);
+        }
         for(int i=1;i<=n*n;i++)
-            state[i]=false;
-        
+            stateofsite[i]=false;
+         
     }
-    
-    
-   
-    public void open(int row,int col)// open site(row,col) if it is not open already
+    public void open(int row,int col)
     {
         validate_site(row,col);
-        int index=matrixto1D(row,col);
-        state[index]=true;
+        stateofsite[getlocate(row,col)]=true;
         if(row==1)
-            uf.union(index,top);
-        if(!(percolates()))
         {
-            if(row==N)
-                uf.union(index,bottom);
+            uf1.union(0,getlocate(row,col));
+            uf2.union(0,getlocate(row,col));
         }
-        if(row< N && state[index+N])
-            uf.union(index,index+N);
-        if(row>1 && state[index-N])
-            uf.union(index,index-N);
-        if(col<N && state[index+1])
-            uf.union(index,index+1);
-        if(col>1 && state[index-1])
-            uf.union(index,index-1);
+        if(row==n)
+        {
+            uf1.union(getlocate(row,col),n*n+1);
+        }
+        if(row>1 && isOpen(row-1,col))
+        {//connect to the upper line
+            uf1.union(getlocate(row,col),getlocate(row-1,col));
+            uf2.union(getlocate(row,col),getlocate(row-1,col));
+        }
+        if(row<n && isOpen(row+1,col))
+        {//down connect
+            uf1.union(getlocate(row,col),getlocate(row+1,col));
+            uf2.union(getlocate(row,col),getlocate(row+1,col));
+        }
+        if(col>1 && isOpen(row,col-1))
+        {//left connect
+            uf1.union(getlocate(row,col),getlocate(row,col-1));
+            uf2.union(getlocate(row,col),getlocate(row,col-1));
+        }
+        if(col<n && isOpen(row,col+1))
+        {//right connect
+            uf1.union(getlocate(row,col),getlocate(row,col+1));
+            uf2.union(getlocate(row,col),getlocate(row,col+1));
+        }
             
     }
+    public boolean isOpen(int row, int col)
+    {
+        validate_site(row,col);
+        return stateofsite[getlocate(row,col)];
+    }
+    public boolean isFull(int row,int col)
+    {
+        validate_site(row,col);
+        if(isOpen(row,col))
+        {
+            if(row==1)
+                return true;
+            else if(uf1.connected(getlocate(row,col),0))
+                return true;
+        }
+        return false;
+    }
     
-    public boolean isOpen(int row,int col)//is site(row,col) open?
-    {
-        validate_site(row,col);
-        return state[matrixto1D(row,col)];
-    }
-    public boolean isFull(int row,int col)// is site(row,col) full?
-    {
-        validate_site(row,col);
-        return uf.connected(top,matrixto1D(row,col));//why???
-        
-    }
-    public int numberOfOpenSites()//number of open sites
+    public int numberOfOpenSites()
     {
         int count=0;
-        for(int i=0;i<N;i++)
-            for(int j=0;j<N;j++)
+        for(int i=1;i<=n;i++)
+            for(int j=1;j<=n;j++)
         {
             if(isOpen(i,j))
                 count++;
         }
         return count;
-    }
-    public boolean percolates()//does the system percolate？
-    {
-        return uf.connected(top,bottom);
-    }
-    // own functions
-     private void validate_site(int i,int j)
-    {
-        if(!(i>=1 && i<=N && j>=1 && j<=N))
-            throw new IndexOutOfBoundsException("invalid site!");
+        
+
     }
     
-    private int matrixto1D(int i,int j)//convert 2D to 1D for each(i,j)
+    public boolean percolates()// is the system percolate or not?
     {
-        validate_site(i,j);
-        return j+(i-1)*N;
+        if(n==1)
+            return isFull(1,1);
+        else
+        {
+            return uf1.connected(0,n*n+1);
+        }
+    }
+    
+    private int getlocate(int i,int j)
+    {
+        return j+(i-1)*n;
+    }
+    private void validate_site(int i,int j)
+    {
+        if(i<1 || i>n || j<1 ||j>n)
+            throw new IndexOutOfBoundsException();
     }
     
 }
-
